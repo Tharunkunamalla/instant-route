@@ -59,7 +59,6 @@ export const fetchRoadNetwork = async (lat, lng, radius = 2000) => {
   
   for (const url of OVERPASS_API_URLS) {
     try {
-      console.log(`Attempting to fetch OSM data from: ${url}`);
       const response = await fetchWithTimeout(url, {
         method: "POST",
         body: body,
@@ -70,14 +69,10 @@ export const fetchRoadNetwork = async (lat, lng, radius = 2000) => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`Successfully fetched OSM data from: ${url}`);
         return data;
-      } else {
-        console.warn(`Mirror ${url} returned status: ${response.status}`);
       }
     } catch (error) {
-      console.error(`Failed to fetch from mirror ${url}:`, error.message);
-      // Continue to next mirror
+      // Continue to next mirror silently
     }
   }
 

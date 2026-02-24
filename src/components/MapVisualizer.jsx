@@ -65,7 +65,6 @@ const VisitedNodesLayer = memo(({ visitedOrder, visitedCount, graph }) => {
 
         // If visitedCount reset to 0
         if (visitedCount === 0) {
-            console.log("VisitedNodesLayer: Resetting layers");
             layerGroupRef.current.clearLayers();
             lastCountRef.current = 0;
             return;
@@ -73,7 +72,6 @@ const VisitedNodesLayer = memo(({ visitedOrder, visitedCount, graph }) => {
 
         // Check if we actually have data to draw
         if (!visitedOrder || visitedOrder.length === 0) {
-            console.log("VisitedNodesLayer: No visitedOrder data yet");
             return;
         }
 
@@ -86,8 +84,6 @@ const VisitedNodesLayer = memo(({ visitedOrder, visitedCount, graph }) => {
         // Add only NEW nodes
         const start = lastCountRef.current;
         const end = visitedCount;
-
-        console.log(`VisitedNodesLayer: Drawing from ${start} to ${end}. Total Order: ${visitedOrder.length}`);
 
         if (start < end) {
             let drawn = 0;
@@ -109,14 +105,9 @@ const VisitedNodesLayer = memo(({ visitedOrder, visitedCount, graph }) => {
                          interactive: false 
                      }).addTo(layerGroupRef.current);
                      drawn++;
-                 } else {
-                     console.warn(`Node ${id} not found in graph!`);
                  }
             }
-            // Only advance if we actually had valid data to cover up to 'end'
-            // If visitedOrder was shorter than 'end', we only drew up to visitedOrder.length
             lastCountRef.current = Math.min(end, visitedOrder.length);
-            console.log(`VisitedNodesLayer: Drawn ${drawn} nodes.`);
         }
     }, [visitedCount, visitedOrder, graph, map]);
     
