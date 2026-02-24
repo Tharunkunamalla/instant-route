@@ -1,6 +1,29 @@
 import { toast } from "@/hooks/use-toast";
 
-const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
+const OVERPASS_API_URLS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
+  "https://z.overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.nchc.org.tw/api/interpreter"
+];
+
+// Helper for fetch with timeout
+const fetchWithTimeout = async (url, options, timeout = 15000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+};
 
 // Helper to calculate distance between two coordinates in meters (Haversine)
 const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -23,9 +46,6 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
  * @param {number} radius - Search radius in meters
  */
 export const fetchRoadNetwork = async (lat, lng, radius = 2000) => {
-  // Query to get all ways with "highway" tag around the point
-  // We exclude footways, cycleways if desired, but for general routing "highway" covers most.
-  // We use [out:json] and a bounding box or "around" filter.
   const query = `
     [out:json];
     (
@@ -35,30 +55,39 @@ export const fetchRoadNetwork = async (lat, lng, radius = 2000) => {
     out body;
   `;
 
-  try {
-    const response = await fetch(OVERPASS_API_URL, {
-      method: "POST",
-      body: `data=${encodeURIComponent(query)}`,
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    });
+  const body = `data=${encodeURIComponent(query)}`;
+  
+  for (const url of OVERPASS_API_URLS) {
+    try {
+      console.log(`Attempting to fetch OSM data from: ${url}`);
+      const response = await fetchWithTimeout(url, {
+        method: "POST",
+        body: body,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }, 20000); // 20 second timeout per mirror
 
-    if (!response.ok) {
-        throw new Error(`Overpass API Error: ${response.statusText}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Successfully fetched OSM data from: ${url}`);
+        return data;
+      } else {
+        console.warn(`Mirror ${url} returned status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error(`Failed to fetch from mirror ${url}:`, error.message);
+      // Continue to next mirror
     }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Failed to fetch OSM data:", error);
-    toast({
-        title: "Map Data Error",
-        description: "Failed to load real-world roads. Please try again.",
-        variant: "destructive"
-    });
-    return null;
   }
+
+  // If all mirrors fail
+  toast({
+      title: "Map Data Error",
+      description: "Failed to connect to any OpenStreetMap servers. Please check your internet or try again later.",
+      variant: "destructive"
+  });
+  return null;
 };
 
 /**
