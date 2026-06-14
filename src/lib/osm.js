@@ -1,13 +1,5 @@
 import { toast } from "@/hooks/use-toast";
 
-const OVERPASS_API_URLS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://lz4.overpass-api.de/api/interpreter",
-  "https://z.overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://overpass.nchc.org.tw/api/interpreter"
-];
-
 // Helper for fetch with timeout
 const fetchWithTimeout = async (url, options, timeout = 15000) => {
   const controller = new AbortController();
@@ -55,28 +47,24 @@ export const fetchRoadNetwork = async (lat, lng, radius = 2000) => {
     out body;
   `;
 
-  const body = `data=${encodeURIComponent(query)}`;
-  
-  for (const url of OVERPASS_API_URLS) {
-    try {
-      const response = await fetchWithTimeout(url, {
-        method: "POST",
-        body: body,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }, 20000); // 20 second timeout per mirror
+  try {
+    const response = await fetchWithTimeout("/api/osm", {
+      method: "POST",
+      body: `data=${encodeURIComponent(query)}`,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    }, 45000); // 45 second timeout for proxy to try mirrors
 
-      if (response.ok) {
-        const data = await response.json();
-        return data;
-      }
-    } catch (error) {
-      // Continue to next mirror silently
+    if (response.ok) {
+      const data = await response.json();
+      return data;
     }
+  } catch (error) {
+    console.error("Failed to fetch road network via proxy:", error);
   }
 
-  // If all mirrors fail
+  // If the proxy query fails
   toast({
       title: "Map Data Error",
       description: "Failed to connect to any OpenStreetMap servers. Please check your internet or try again later.",
