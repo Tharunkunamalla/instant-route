@@ -13,7 +13,7 @@ import { bfs } from '@/algorithms/bfs';
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from 'react-router-dom';
 
-const RADIUS_METERS = 1500; // 1.5km radius for better performance
+const RADIUS_METERS = 2500; // 2.5km radius for better performance
 
 // Memoized Sidebar to prevent re-renders during animation
 const ControlSidebar = React.memo(({ 
