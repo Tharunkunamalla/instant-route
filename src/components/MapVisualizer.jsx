@@ -1,5 +1,5 @@
 import React, { useEffect, useState, memo } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap, useMapEvents, Circle, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Popup, useMap, useMapEvents, Marker } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix for default marker icon
