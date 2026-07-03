@@ -142,21 +142,21 @@ const PathLayer = memo(({ path, graph }) => {
 });
 
 // 4. Interaction Points (Source/Dest) - Always distinct
-const ControlPoints = ({ source, destination, graph, radius, onNodeClick }) => {
+const ControlPoints = ({ source, destination, sourceLatLng, destinationLatLng, radius, onNodeClick }) => {
     return (
         <>
              {/* Source */}
-             {source && graph[source] && (
+             {source && sourceLatLng && (
                  <>
                     <Marker
-                        position={[graph[source].lat, graph[source].lng]}
+                        position={sourceLatLng}
                         icon={bluePin}
                         eventHandlers={{ click: (e) => { L.DomEvent.stopPropagation(e); onNodeClick(source); }}}
                     >
                          <Popup>Source: {source}</Popup>
                     </Marker>
                     <Circle 
-                        center={[graph[source].lat, graph[source].lng]}
+                        center={sourceLatLng}
                         radius={radius}
                         pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.05, weight: 1, dashArray: '5, 5' }}
                         interactive={false}
@@ -165,9 +165,9 @@ const ControlPoints = ({ source, destination, graph, radius, onNodeClick }) => {
              )}
              
              {/* Destination */}
-             {destination && graph[destination] && (
+             {destination && destinationLatLng && (
                  <Marker
-                    position={[graph[destination].lat, graph[destination].lng]}
+                    position={destinationLatLng}
                     icon={redPin}
                     eventHandlers={{ click: (e) => { L.DomEvent.stopPropagation(e); onNodeClick(destination); }}}
                 >
@@ -239,6 +239,8 @@ const MapVisualizer = ({
   graph, 
   source, 
   destination, 
+  sourceLatLng,
+  destinationLatLng,
   path,
   zoomPath, 
   visitedOrder,
@@ -277,7 +279,8 @@ const MapVisualizer = ({
       <ControlPoints 
         source={source} 
         destination={destination} 
-        graph={graph} 
+        sourceLatLng={sourceLatLng}
+        destinationLatLng={destinationLatLng}
         radius={radius} 
         onNodeClick={onNodeClick} 
       />
