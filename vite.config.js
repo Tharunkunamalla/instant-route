@@ -9,6 +9,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      "/api/pathfind": {
+        target: "http://localhost:8081",
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   plugins: [
     react(),
