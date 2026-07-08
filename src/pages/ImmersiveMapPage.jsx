@@ -7,9 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Play, Pause, StepForward, RotateCcw, Maximize2, Minimize2, Map as MapIcon, ArrowLeft, Navigation, Search } from "lucide-react";
 import MapVisualizer from '@/components/MapVisualizer';
 import { buildGraphFromOSM, fetchRoadNetwork, findNearestNode } from '@/lib/osm';
-import { dijkstra } from '@/algorithms/dijkstra';
-import { astar } from '@/algorithms/astar';
-import { bfs } from '@/algorithms/bfs';
+import { getRoute } from '@/lib/api';
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from 'react-router-dom';
 
@@ -494,7 +492,7 @@ const ImmersiveMapPage = () => {
       }
   };
 
-  const calculateRoute = () => {
+  const calculateRoute = async () => {
     if (source === null || destination === null) return;
 
     setIsCalculating(true);
@@ -503,42 +501,49 @@ const ImmersiveMapPage = () => {
     setPath([]);
     setVisitedOrder([]);
 
-    // Use setTimeout to allow UI to render "Calculating..." state before heavy operation
-    setTimeout(() => {
-        try {
-            let result;
-            if (algorithm === "Dijkstra") result = dijkstra(graph, String(source), String(destination));
-            else if (algorithm === "A*") result = astar(graph, String(source), String(destination));
-            else result = bfs(graph, String(source), String(destination));
+    try {
+        const result = await getRoute(graph, source, destination, algorithm);
 
-            if (!result || result.path.length === 0) {
-                toast({ title: "No Path", description: "No route found.", variant: "destructive" });
-                setIsCalculating(false);
-                return;
-            }
-
-            const d = result.distance;
-            const distanceStr = d > 1000 ? `${(d / 1000).toFixed(2)} km` : `${Math.round(d)} m`;
-            const seconds = Math.round(d / 10);
-            const durationStr = seconds > 60 ? `${Math.floor(seconds / 60)} min ${seconds % 60} s` : `${seconds} s`;
-
+        if (!result || result.path.length === 0) {
+            toast({ title: "No Path", description: "No route found.", variant: "destructive" });
             setIsCalculating(false);
-            setZoomPath(result.path); // Zoom immediately
-            
-            // Setup Animation
-            setVisitedOrder(result.visitedOrder);
-            setFinalPath(result.path);
-            setRouteInfo({ distance: distanceStr, duration: durationStr });
-            
-            // Auto-Start
-            setIsLoading(true);
-            setIsPlaying(true);
-        } catch (error) {
-            console.error("Algorithm Error:", error);
-            setIsCalculating(false);
-            toast({ title: "Calculation Error", description: "An error occurred while calculating the route.", variant: "destructive" });
+            return;
         }
-    }, 100);
+
+        if (result.source === "client-fallback") {
+            toast({ 
+                title: "Local Execution", 
+                description: "Pathfinding microservice unreachable. Calculated path locally.", 
+                variant: "warning" 
+            });
+        } else {
+            toast({ 
+                title: "Microservice Success", 
+                description: `Calculated path using Java ${algorithm} microservice.`, 
+            });
+        }
+
+        const d = result.distance;
+        const distanceStr = d > 1000 ? `${(d / 1000).toFixed(2)} km` : `${Math.round(d)} m`;
+        const seconds = Math.round(d / 10);
+        const durationStr = seconds > 60 ? `${Math.floor(seconds / 60)} min ${seconds % 60} s` : `${seconds} s`;
+
+        setIsCalculating(false);
+        setZoomPath(result.path); // Zoom immediately
+        
+        // Setup Animation
+        setVisitedOrder(result.visitedOrder);
+        setFinalPath(result.path);
+        setRouteInfo({ distance: distanceStr, duration: durationStr });
+        
+        // Auto-Start
+        setIsLoading(true);
+        setIsPlaying(true);
+    } catch (error) {
+        console.error("Algorithm Error:", error);
+        setIsCalculating(false);
+        toast({ title: "Calculation Error", description: "An error occurred while calculating the route.", variant: "destructive" });
+    }
   };
 
   return (

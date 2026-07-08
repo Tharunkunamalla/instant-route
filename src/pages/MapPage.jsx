@@ -15,9 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import MapVisualizer from "@/components/MapVisualizer";
-import { dijkstra } from "@/algorithms/dijkstra";
-import { astar } from "@/algorithms/astar";
-import { bfs } from "@/algorithms/bfs";
+import { getRoute } from "@/lib/api";
 
 
 import { fetchRoadNetwork, buildGraphFromOSM, findNearestNode } from "@/lib/osm";
@@ -242,7 +240,7 @@ const MapPage = () => {
       }
   };
 
-  const calculateRoute = () => {
+  const calculateRoute = async () => {
     if (source === null || destination === null) {
        toast({ title: "Error", description: "Select source and destination", variant: "destructive" });
        return;
@@ -255,70 +253,86 @@ const MapPage = () => {
     setPath([]);
     setVisitedOrder([]);
 
-    // Async delay to allow UI update
-    setTimeout(() => {
-        try {
-            let result;
-            // Pass string IDs
-            if (algorithm === "Dijkstra") {
-            result = dijkstra(graph, String(source), String(destination));
-            } else if (algorithm === "A*") {
-            result = astar(graph, String(source), String(destination));
-            } else if (algorithm === "BFS") {
-            result = bfs(graph, String(source), String(destination));
-            }
+    try {
+        const result = await getRoute(graph, source, destination, algorithm);
 
-            if (!result || result.path.length === 0) {
-                toast({ title: "No Path", description: "No route found between these nodes.", variant: "destructive" });
-                setIsCalculating(false);
-                return;
-            }
-
-            // Format distance
-            const d = result.distance;
-            const distanceStr = d > 1000 
-                ? `${(d / 1000).toFixed(2)} km` 
-                : `${Math.round(d)} m`;
-
-            // Format duration (assuming ~35km/h or 10m/s for city driving)
-            const seconds = Math.round(d / 10);
-            const durationStr = seconds > 60 
-                ? `${Math.floor(seconds / 60)} min ${seconds % 60} s` 
-                : `${seconds} s`;
-            
+        if (!result || result.path.length === 0) {
+            toast({ title: "No Path", description: "No route found between these nodes.", variant: "destructive" });
             setIsCalculating(false);
-            
-            // Update States for Animation
-            setZoomPath(result.path); // Auto zoom immediately
-            setVisitedOrder(result.visitedOrder);
-            setFinalPath(result.path);
-            setRouteInfo({ 
-                distance: distanceStr, 
-                duration: durationStr 
-            }); 
-            
-            // Auto-start
-            setIsLoading(true); // "Visualizing..." state
-            setIsPlaying(true); 
-        } catch (error) {
-            console.error("Algorithm Error:", error);
-            setIsCalculating(false);
-            toast({ title: "Calculation Error", description: "An error occurred while calculating the route.", variant: "destructive" });
+            return;
         }
-    }, 100);
+
+        if (result.source === "client-fallback") {
+            toast({ 
+                title: "Local Execution", 
+                description: "Pathfinding microservice unreachable. Calculated path locally.", 
+                variant: "warning" 
+            });
+        } else {
+            toast({ 
+                title: "Microservice Success", 
+                description: `Calculated path using Java ${algorithm} microservice.`, 
+            });
+        }
+
+        // Format distance
+        const d = result.distance;
+        const distanceStr = d > 1000 
+            ? `${(d / 1000).toFixed(2)} km` 
+            : `${Math.round(d)} m`;
+
+        // Format duration (assuming ~35km/h or 10m/s for city driving)
+        const seconds = Math.round(d / 10);
+        const durationStr = seconds > 60 
+            ? `${Math.floor(seconds / 60)} min ${seconds % 60} s` 
+            : `${seconds} s`;
+        
+        setIsCalculating(false);
+        
+        // Update States for Animation
+        setZoomPath(result.path); // Auto zoom immediately
+        setVisitedOrder(result.visitedOrder);
+        setFinalPath(result.path);
+        setRouteInfo({ 
+            distance: distanceStr, 
+            duration: durationStr 
+        }); 
+        
+        // Auto-start
+        setIsLoading(true); // "Visualizing..." state
+        setIsPlaying(true); 
+    } catch (error) {
+        console.error("Algorithm Error:", error);
+        setIsCalculating(false);
+        toast({ title: "Calculation Error", description: "An error occurred while calculating the route.", variant: "destructive" });
+    }
   };
 
   // Compare function same as before...
-  const findBestRoute = () => {
+  const findBestRoute = async () => {
      if (source === null || destination === null) return;
-     const d = dijkstra(graph, String(source), String(destination));
-     const a = astar(graph, String(source), String(destination));
-     const b = bfs(graph, String(source), String(destination));
-     
-     const format = (val) => val > 1000 ? `${(val/1000).toFixed(2)} km` : `${Math.round(val)} m`;
-     
-     const winner = d.distance <= b.distance ? (d.distance <= a.distance ? "Dijkstra" : "A*") : (b.distance <= a.distance ? "BFS" : "A*");
-     alert(`Route Comparison:\n\nDijkstra: ${format(d.distance)}\nA*: ${format(a.distance)}\nBFS: ${format(b.distance)}\n\nBest: ${winner}`);
+     setIsCalculating(true);
+     try {
+         const [d, a, b] = await Promise.all([
+             getRoute(graph, source, destination, "Dijkstra"),
+             getRoute(graph, source, destination, "A*"),
+             getRoute(graph, source, destination, "BFS")
+         ]);
+         
+         setIsCalculating(false);
+         const format = (val) => val > 1000 ? `${(val/1000).toFixed(2)} km` : `${Math.round(val)} m`;
+         
+         const winner = d.distance <= b.distance ? (d.distance <= a.distance ? "Dijkstra" : "A*") : (b.distance <= a.distance ? "BFS" : "A*");
+         
+         const usedFallback = d.source === "client-fallback" || a.source === "client-fallback" || b.source === "client-fallback";
+         const engine = usedFallback ? "Client-side (Local Fallback)" : "Java Microservice";
+         
+         alert(`Route Comparison (${engine}):\n\nDijkstra: ${format(d.distance)}\nA*: ${format(a.distance)}\nBFS: ${format(b.distance)}\n\nBest: ${winner}`);
+     } catch (err) {
+         console.error(err);
+         setIsCalculating(false);
+         toast({ title: "Error", description: "Failed to compare routes.", variant: "destructive" });
+     }
   };
 
   return (
