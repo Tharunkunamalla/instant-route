@@ -2,64 +2,74 @@ package com.routeguide.pathfinding.algorithm;
 
 import com.routeguide.pathfinding.model.Node;
 import com.routeguide.pathfinding.model.Result;
+import org.springframework.stereotype.Component;
 import java.util.*;
 
-public class Dijkstra {
+@Component("Dijkstra")
+public class Dijkstra implements PathfindingStrategy {
 
-    public static Result findPath(Map<String, Node> graph, String startNodeId, String endNodeId) {
+    private static class PathNode implements Comparable<PathNode> {
+        String id;
+        double distance;
+
+        PathNode(String id, double distance) {
+            this.id = id;
+            this.distance = distance;
+        }
+
+        @Override
+        public int compareTo(PathNode other) {
+            return Double.compare(this.distance, other.distance);
+        }
+    }
+
+    @Override
+    public Result findPath(Map<String, Node> graph, String startNodeId, String endNodeId) {
         Map<String, Double> distances = new HashMap<>();
         Map<String, String> previous = new HashMap<>();
-        Set<String> unvisited = new HashSet<>();
+        Set<String> visited = new HashSet<>();
         List<String> visitedOrder = new ArrayList<>();
+        PriorityQueue<PathNode> pq = new PriorityQueue<>();
 
         // Initialize
         for (String nodeId : graph.keySet()) {
             distances.put(nodeId, Double.POSITIVE_INFINITY);
             previous.put(nodeId, null);
-            unvisited.add(nodeId);
         }
+        
         distances.put(startNodeId, 0.0);
+        pq.add(new PathNode(startNodeId, 0.0));
 
-        while (!unvisited.isEmpty()) {
-            // Find node with smallest distance
-            String currentNodeId = null;
-            double smallestDistance = Double.POSITIVE_INFINITY;
+        while (!pq.isEmpty()) {
+            PathNode current = pq.poll();
+            String u = current.id;
 
-            for (String nodeId : unvisited) {
-                double dist = distances.get(nodeId);
-                if (dist < smallestDistance) {
-                    smallestDistance = dist;
-                    currentNodeId = nodeId;
-                }
+            if (visited.contains(u)) {
+                continue;
+            }
+            visited.add(u);
+            visitedOrder.add(u);
+
+            if (u.equals(endNodeId)) {
+                break;
             }
 
-            if (currentNodeId == null || distances.get(currentNodeId) == Double.POSITIVE_INFINITY) {
-                break; // No reachable nodes left or target unreachable
-            }
-
-            if (currentNodeId.equals(endNodeId)) {
-                visitedOrder.add(currentNodeId);
-                break; // Reached target
-            }
-
-            unvisited.remove(currentNodeId);
-            visitedOrder.add(currentNodeId);
-
-            // Neighbors
-            Node node = graph.get(currentNodeId);
+            Node node = graph.get(u);
             if (node == null || node.neighbors == null) continue;
 
-            Map<String, Double> neighbors = node.neighbors;
-            for (Map.Entry<String, Double> entry : neighbors.entrySet()) {
-                String neighborId = entry.getKey();
+            for (Map.Entry<String, Double> entry : node.neighbors.entrySet()) {
+                String v = entry.getKey();
                 double weight = entry.getValue();
 
-                if (unvisited.contains(neighborId)) {
-                    double alt = distances.get(currentNodeId) + weight;
-                    if (alt < distances.get(neighborId)) {
-                        distances.put(neighborId, alt);
-                        previous.put(neighborId, currentNodeId);
-                    }
+                if (visited.contains(v)) {
+                    continue;
+                }
+
+                double alt = distances.get(u) + weight;
+                if (alt < distances.get(v)) {
+                    distances.put(v, alt);
+                    previous.put(v, u);
+                    pq.add(new PathNode(v, alt));
                 }
             }
         }
