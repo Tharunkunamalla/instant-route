@@ -42,7 +42,8 @@ const ControlSidebar = React.memo(({
     handleReset,
     city,
     setCity,
-    handleCitySearch
+    handleCitySearch,
+    loadTelanganaMap
 }) => {
     const [theme, toggleTheme] = useTheme();
 
@@ -211,6 +212,17 @@ const ControlSidebar = React.memo(({
                        </div>
                    </div>
 
+                   <div className="space-y-2 pt-2 border-t border-white/5">
+                        <Button 
+                            onClick={loadTelanganaMap} 
+                            variant="outline" 
+                            className="w-full h-11 border-blue-500/20 text-zinc-300 hover:bg-blue-500/10 hover:text-blue-400 hover:border-blue-500/50 transition-all"
+                            disabled={isGraphLoading}
+                        >
+                            Load Telangana Map (Instant)
+                        </Button>
+                    </div>
+
                    <div className="space-y-3">
                        <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Coordinates</label>
                        <div className="space-y-2">
@@ -340,6 +352,7 @@ const ImmersiveMapPage = () => {
 
   const [finalPath, setFinalPath] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPreloaded, setIsPreloaded] = useState(false);
 
   const handleCitySearch = async (e) => {
     if (e.key === 'Enter' && city.trim() !== "") {
@@ -361,6 +374,34 @@ const ImmersiveMapPage = () => {
             toast({ title: "Search Error", description: "Failed to connect to search service.", variant: "destructive" });
         }
     }
+  };
+
+  const loadTelanganaMap = async () => {
+      setIsGraphLoading(true);
+      try {
+          toast({ title: "Loading Map...", description: "Loading pre-saved Telangana highway network..." });
+          const response = await fetch("/data/telangana_map.json");
+          if (!response.ok) throw new Error("Failed to load map file");
+          const data = await response.json();
+          
+          setGraph(data);
+          setSource(null);
+          setDestination(null);
+          setIsPreloaded(true);
+          setPath([]);
+          setFinalPath([]);
+          setVisitedOrder([]);
+          setVisitedCount(0);
+          setRouteInfo(null);
+          
+          setTargetLocation([17.8483, 79.1741]);
+          toast({ title: "Map Loaded Instantly", description: `Loaded ${Object.keys(data).length} highway intersections. Click any node to set Source.` });
+      } catch (err) {
+          console.error(err);
+          toast({ title: "Error", description: "Failed to load pre-saved Telangana map.", variant: "destructive" });
+      } finally {
+          setIsGraphLoading(false);
+      }
   };
 
   const loadGraph = async (lat, lng) => {
@@ -416,16 +457,18 @@ const ImmersiveMapPage = () => {
            if (!newGraph) return;
            currentGraph = newGraph;
       } else {
-          // Check bounds logic
-          const centerNode = Object.values(currentGraph)[0]; 
-          const dist = Math.sqrt(Math.pow(lat - centerNode.lat, 2) + Math.pow(lng - centerNode.lng, 2));
-           if (dist > 0.05) { 
-                toast({ 
-                    title: "Out of Bounds", 
-                    description: 'Please click within the loaded active region.', 
-                    variant: "destructive" 
-                });
-                return;
+           // Skip bounds check if using pre-saved state highway network
+           if (!isPreloaded) {
+               const centerNode = Object.values(currentGraph)[0]; 
+               const dist = Math.sqrt(Math.pow(lat - centerNode.lat, 2) + Math.pow(lng - centerNode.lng, 2));
+               if (dist > 0.05) { 
+                    toast({ 
+                        title: "Out of Bounds", 
+                        description: 'Please click within the loaded active region.', 
+                        variant: "destructive" 
+                    });
+                    return;
+               }
            }
       }
 
@@ -446,6 +489,7 @@ const ImmersiveMapPage = () => {
     setGraph({});
     setSource(null);
     setDestination(null);
+    setIsPreloaded(false);
     setPath([]);
     setFinalPath([]);
     setZoomPath([]);
@@ -593,6 +637,7 @@ const ImmersiveMapPage = () => {
         city={city}
         setCity={setCity}
         handleCitySearch={handleCitySearch}
+        loadTelanganaMap={loadTelanganaMap}
       />
 
       {/* Main Map Area */}

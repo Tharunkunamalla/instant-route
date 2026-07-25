@@ -35,6 +35,7 @@ const MapPage = () => {
   const [visitedNodes, setVisitedNodes] = useState([]); // Deprecated, kept for back-compat if needed but unused in new visualizer
   const [visitedOrder, setVisitedOrder] = useState([]);
   const [visitedCount, setVisitedCount] = useState(0);
+  const [isPreloaded, setIsPreloaded] = useState(false);
   
   // Animation Control States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -71,49 +72,87 @@ const MapPage = () => {
     }
   };
 
+  const loadTelanganaMap = async () => {
+      setIsGraphLoading(true);
+      try {
+          toast({ title: "Loading Map...", description: "Loading pre-saved Telangana highway network..." });
+          const response = await fetch("/data/telangana_map.json");
+          if (!response.ok) throw new Error("Failed to load map file");
+          const data = await response.json();
+          
+          setGraph(data);
+          setSource(null);
+          setDestination(null);
+          setIsPreloaded(true);
+          setPath([]);
+          setFinalPath([]);
+          setVisitedOrder([]);
+          setVisitedCount(0);
+          setRouteInfo(null);
+          
+          // Center map to Telangana state center (Warangal/Hyderabad area)
+          setTargetLocation([17.8483, 79.1741]);
+          
+          toast({ title: "Map Loaded Instantly", description: `Loaded ${Object.keys(data).length} highway intersections. Click any node to set Source.` });
+      } catch (err) {
+          console.error(err);
+          toast({ title: "Error", description: "Failed to load pre-saved Telangana map.", variant: "destructive" });
+      } finally {
+          setIsGraphLoading(false);
+      }
+  };
+
   const handleMapClick = async (e) => {
       const { lat, lng } = e.latlng;
 
-      if (source !== null && destination === null) {
-          // Validate Bounds: Check distance from Source
-          // Graph is generated around Source within RADIUS_METERS
-          const sourceNode = graph[source];
-          if (sourceNode) {
-              const R = 6371e3; // metres
-              const φ1 = sourceNode.lat * Math.PI/180;
-              const φ2 = lat * Math.PI/180;
-              const Δφ = (lat - sourceNode.lat) * Math.PI/180;
-              const Δλ = (lng - sourceNode.lng) * Math.PI/180;
-
-              const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                        Math.cos(φ1) * Math.cos(φ2) *
-                        Math.sin(Δλ/2) * Math.sin(Δλ/2);
-              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              const d = R * c;
-
-              if (d > RADIUS_METERS * 1.05) { // 5% buffer
-                   toast({ 
-                       title: "Out of Bounds", 
-                       description: `'Destination is too far. Please select within the radius circle.'`, 
-                       variant: "destructive" 
-                   });
-                   return;
+      // Case 1: Pre-saved graph is active, or a graph has already been fetched
+      if (Object.keys(graph).length > 0) {
+          if (source === null) {
+              const nearest = findNearestNode(lat, lng, graph);
+              if (nearest && nearest.nodeId) {
+                 setSource(String(nearest.nodeId));
+                 toast({ title: "Source Point Set", description: `Node set. Select destination node.` });
+              } else {
+                 toast({ title: "Error", description: "Click closer to a road.", variant: "destructive" });
               }
-          }
+          } else if (destination === null) {
+              const sourceNode = graph[source];
+              if (sourceNode) {
+                  const R = 6371e3; // metres
+                  const φ1 = sourceNode.lat * Math.PI/180;
+                  const φ2 = lat * Math.PI/180;
+                  const Δφ = (lat - sourceNode.lat) * Math.PI/180;
+                  const Δλ = (lng - sourceNode.lng) * Math.PI/180;
 
-          // Setting Destination
-          const nearest = findNearestNode(lat, lng, graph);
-          if (nearest && nearest.nodeId) {
-             setDestination(String(nearest.nodeId));
-             toast({ title: "Destination Selected", description: `Node set. Ready to visualize.` });
-          } else {
-             toast({ title: "Error", description: "Click closer to a road.", variant: "destructive" });
+                  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                            Math.cos(φ1) * Math.cos(φ2) *
+                            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                  const d = R * c;
+
+                  // Only validate bounds if not using pre-saved state highway network
+                  if (!isPreloaded && d > RADIUS_METERS * 1.05) { 
+                       toast({ 
+                           title: "Out of Bounds", 
+                           description: `'Destination is too far. Please select within the radius circle.'`, 
+                           variant: "destructive" 
+                       });
+                       return;
+                  }
+              }
+
+              const nearest = findNearestNode(lat, lng, graph);
+              if (nearest && nearest.nodeId) {
+                 setDestination(String(nearest.nodeId));
+                 toast({ title: "Destination Selected", description: `Node set. Ready to visualize.` });
+              } else {
+                 toast({ title: "Error", description: "Click closer to a road.", variant: "destructive" });
+              }
           }
           return;
       }
       
-      if (source !== null) return; // Map already set up
-      
+      // Case 2: Graph is empty, so fetch new road network around clicked point
       setIsGraphLoading(true);
       
       try {
@@ -140,14 +179,15 @@ const MapPage = () => {
           const nearest = findNearestNode(lat, lng, newGraph);
           
           if (nearest && nearest.nodeId) {
-             setSource(String(nearest.nodeId));
-             toast({ title: "Source Point Set", description: `Map loaded with ${Object.keys(newGraph).length} road nodes.` });
-             
-             // Update Footer Region
-             const region = Math.random() > 0.5 ? "Telangana (Hyd)" : "Kerala (Kochi)";
-             window.dispatchEvent(new CustomEvent('region-update', { detail: region }));
+              setSource(String(nearest.nodeId));
+              toast({ title: "Source Point Set", description: `Map loaded with ${Object.keys(newGraph).length} road nodes.` });
+              
+              // Update Footer Region
+              const region = Math.random() > 0.5 ? "Telangana (Hyd)" : "Kerala (Kochi)";
+              window.dispatchEvent(new CustomEvent('region-update', { detail: region }));
           } else {
-             toast({ title: "Error", description: "No valid node found near click.", variant: "destructive" });
+              setSource(null);
+              toast({ title: "Error", description: "No valid node found near click.", variant: "destructive" });
           }
 
       } catch (err) {
@@ -166,6 +206,7 @@ const MapPage = () => {
     setGraph({});
     setSource(null);
     setDestination(null);
+    setIsPreloaded(false);
     setPath([]);
     setFinalPath([]);
     setZoomPath([]);
@@ -386,6 +427,17 @@ const MapPage = () => {
                         onKeyDown={handleCitySearch}
                         placeholder="Type city and press Enter" 
                     />
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-border">
+                    <Button 
+                        onClick={loadTelanganaMap} 
+                        variant="outline" 
+                        className="w-full border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        disabled={isGraphLoading}
+                    >
+                        Load Telangana Map (Instant)
+                    </Button>
                 </div>
 
                    <div className="space-y-2">
