@@ -2,11 +2,14 @@ package com.routeguide.pathfinding.algorithm;
 
 import com.routeguide.pathfinding.model.Node;
 import com.routeguide.pathfinding.model.Result;
+import org.springframework.stereotype.Component;
 import java.util.*;
 
-public class BFS {
+@Component("BFS")
+public class BFS implements PathfindingStrategy {
 
-    public static Result findPath(Map<String, Node> graph, String startNodeId, String endNodeId) {
+    @Override
+    public Result findPath(Map<String, Node> graph, String startNodeId, String endNodeId) {
         Queue<String> queue = new LinkedList<>();
         queue.add(startNodeId);
         
