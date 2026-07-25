@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Loader2, Play, Pause, StepForward, RotateCcw, Maximize2, Minimize2, Map as MapIcon, ArrowLeft, Navigation, Search } from "lucide-react";
+import { Loader2, Play, Pause, StepForward, RotateCcw, Maximize2, Minimize2, Map as MapIcon, ArrowLeft, Navigation, Search, Sun, Moon } from "lucide-react";
 import MapVisualizer from '@/components/MapVisualizer';
 import { buildGraphFromOSM, fetchRoadNetwork, findNearestNode } from '@/lib/osm';
 import { getRoute } from '@/lib/api';
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from 'react-router-dom';
+import { useTheme } from '@/hooks/use-theme';
 
 const RADIUS_METERS = 2500; // 2.5km radius for better performance
 
@@ -43,6 +44,8 @@ const ControlSidebar = React.memo(({
     setCity,
     handleCitySearch
 }) => {
+    const [theme, toggleTheme] = useTheme();
+
     return (
       <aside className="w-[420px] h-full flex-shrink-0 bg-zinc-950/80 backdrop-blur-md border-r border-white/10 flex flex-col z-20 shadow-[10px_0_30px_-10px_rgba(0,0,0,0.5)]">
          
@@ -65,18 +68,29 @@ const ControlSidebar = React.memo(({
                    background-color: rgba(255, 255, 255, 0.3); /* Brighter on hover */
                  }
              `}</style>
-             <div className="flex items-center gap-4 mb-1">
-                <div className="p-2.5 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20 ring-1 ring-white/10">
-                    <MapIcon className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">
-                        GraphPath
-                    </h1>
-                    <p className="text-xs font-medium text-zinc-400 uppercase tracking-widest">
-                        Pro Console
-                    </p>
-                </div>
+             <div className="flex items-center justify-between mb-1">
+                 <div className="flex items-center gap-4">
+                    <div className="p-2.5 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20 ring-1 ring-white/10">
+                        <MapIcon className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-white tracking-tight">
+                            GraphPath
+                        </h1>
+                        <p className="text-xs font-medium text-zinc-400 uppercase tracking-widest">
+                            Pro Console
+                        </p>
+                    </div>
+                 </div>
+                 <Button
+                   variant="ghost"
+                   size="icon"
+                   onClick={toggleTheme}
+                   className="text-zinc-400 hover:text-white hover:bg-white/10 transition-smooth rounded-full"
+                   title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                 >
+                   {theme === 'dark' ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-zinc-400" />}
+                 </Button>
              </div>
              <Link to="/map" className="inline-block mt-4 group">
                  <Button variant="link" className="p-0 h-auto text-xs text-zinc-500 group-hover:text-blue-400 transition-colors">
