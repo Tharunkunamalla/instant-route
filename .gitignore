@@ -25,3 +25,8 @@ torun.txt
 *.sln
 *.sw?
 .env
+
+# Java Build Artifacts
+**/target/
+**/*.class
+
