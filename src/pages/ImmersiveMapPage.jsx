@@ -140,19 +140,23 @@ const ControlSidebar = React.memo(({
                  <div className="flex items-center justify-between">
                      <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Pathfinding Strategy</label>
                  </div>
-                 <Select value={algorithm} onValueChange={setAlgorithm}>
+                  <Select value={algorithm} onValueChange={setAlgorithm}>
                     <SelectTrigger className="bg-zinc-900/50 border-white/10 h-12 text-zinc-200 focus:ring-blue-500/20 hover:bg-zinc-900 transition-colors">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-200 shadow-2xl">
                         <SelectItem value="Dijkstra" className="py-3">Dijkstra's Algorithm</SelectItem>
                         <SelectItem value="A*" className="py-3">A* Search (Heuristic)</SelectItem>
+                        <SelectItem value="Bidirectional Dijkstra" className="py-3">Bidirectional Dijkstra</SelectItem>
+                        <SelectItem value="Bidirectional A*" className="py-3">Bidirectional A*</SelectItem>
                         <SelectItem value="BFS" className="py-3">Breadth-First Search</SelectItem>
                     </SelectContent>
                  </Select>
                  <div className="p-3 rounded-lg bg-zinc-900/30 border border-white/5 text-xs text-zinc-400 leading-relaxed">
                      {algorithm === 'Dijkstra' && "Guarantees the absolute shortest path by aggressively exploring all directions evenly. Computationally expensive."}
                      {algorithm === 'A*' && "Uses GPS heuristics to 'guess' the direction, prioritizing nodes closer to the destination. Fastest for road networks."}
+                     {algorithm === 'Bidirectional Dijkstra' && "Runs Dijkstra from both start and target nodes simultaneously. Meeting in the middle reduces node exploration by up to 50%."}
+                     {algorithm === 'Bidirectional A*' && "Combines heuristics and bidirectional search. Fastest theoretical search time on large road network graphs."}
                      {algorithm === 'BFS' && "Explores layer by layer. Ignores road lengths, just counts number of turns/intersections. Good for unweighted graphs."}
                  </div>
              </div>

@@ -402,17 +402,19 @@ const MapPage = () => {
                    </div>
 
                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Algorithm</label>
-                      <Select value={algorithm} onValueChange={setAlgorithm}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Dijkstra">Dijkstra</SelectItem>
-                            <SelectItem value="A*">A*</SelectItem>
-                            <SelectItem value="BFS">BFS (Greedy)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                       <label className="text-sm font-medium">Algorithm</label>
+                       <Select value={algorithm} onValueChange={setAlgorithm}>
+                         <SelectTrigger>
+                             <SelectValue />
+                         </SelectTrigger>
+                         <SelectContent>
+                             <SelectItem value="Dijkstra">Dijkstra</SelectItem>
+                             <SelectItem value="A*">A*</SelectItem>
+                             <SelectItem value="Bidirectional Dijkstra">Bidirectional Dijkstra</SelectItem>
+                             <SelectItem value="Bidirectional A*">Bidirectional A*</SelectItem>
+                             <SelectItem value="BFS">BFS (Greedy)</SelectItem>
+                         </SelectContent>
+                       </Select>
                    </div>
 
                    <div className="space-y-4">

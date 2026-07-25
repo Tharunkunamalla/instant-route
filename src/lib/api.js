@@ -42,9 +42,9 @@ export const getRoute = async (graph, source, destination, algorithm) => {
     
     // Graceful fallback to client-side JS implementation
     let localResult;
-    if (algorithm === "Dijkstra") {
+    if (algorithm === "Dijkstra" || algorithm === "Bidirectional Dijkstra") {
       localResult = dijkstra(graph, String(source), String(destination));
-    } else if (algorithm === "A*") {
+    } else if (algorithm === "A*" || algorithm === "Bidirectional A*") {
       localResult = astar(graph, String(source), String(destination));
     } else {
       localResult = bfs(graph, String(source), String(destination));
