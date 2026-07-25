@@ -32,6 +32,30 @@ const fetchWithTimeout = async (url, options, timeout = 15000) => {
   }
 };
 
+class MemoryCache {
+  constructor() {
+    this.cache = new Map();
+  }
+  get(key) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiry) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+  set(key, value, ttlMs) {
+    this.cache.set(key, {
+      value,
+      expiry: Date.now() + ttlMs
+    });
+  }
+}
+
+const cache = new MemoryCache();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache TTL
+
 const osmHandler = async (req, res) => {
   let query = req.query.data;
   
@@ -53,11 +77,18 @@ const osmHandler = async (req, res) => {
     return res.status(400).json({ error: "Missing query parameter 'data'" });
   }
 
+  // Check Cache first
+  const cachedData = cache.get(query);
+  if (cachedData) {
+    console.log(`[Proxy] Cache hit for OSM query. Serving cached data.`);
+    return res.status(200).json(cachedData);
+  }
+
   const body = `data=${encodeURIComponent(query)}`;
 
   for (const url of OVERPASS_API_URLS) {
     try {
-      console.log(`[Proxy] Forwarding query to ${url}...`);
+      console.log(`[Proxy] Cache miss. Forwarding query to ${url}...`);
       const response = await fetchWithTimeout(url, {
         method: "POST",
         body: body,
@@ -69,6 +100,8 @@ const osmHandler = async (req, res) => {
 
       if (response.ok) {
         const data = await response.json();
+        // Save to cache on success
+        cache.set(query, data, CACHE_TTL_MS);
         return res.status(200).json(data);
       } else {
         console.warn(`[Proxy] Mirror ${url} returned status ${response.status}`);
