@@ -359,6 +359,56 @@ npm start
 
 ---
 
+### Option C: Deploying to Google Cloud Platform (GCP)
+
+You can absolutely deploy and run this project on Google Cloud Platform! Since the project is fully dockerized with `docker-compose`, you have a couple of excellent deployment pathways depending on your scaling needs:
+
+#### 1. Google Compute Engine (GCE) - *Easiest & recommended for Docker Compose*
+Deploy the multi-container stack directly on a Virtual Machine (VM):
+* **Create a VM Instance:**
+  1. In the GCP Console, go to **Compute Engine** -> **VM Instances** and click **Create Instance**.
+  2. Choose a cost-effective machine type (e.g., `e2-small` or `e2-medium`).
+  3. Under **Boot Disk**, select a Linux distribution like **Ubuntu 22.04 LTS**.
+  4. Under **Firewall**, check **Allow HTTP traffic** and **Allow HTTPS traffic**.
+* **Install Docker & Docker Compose:**
+  Connect to your VM via SSH and run:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y docker.io docker-compose
+  sudo systemctl start docker
+  sudo systemctl enable docker
+  ```
+* **Deploy the Application:**
+  1. Clone your repository:
+     ```bash
+     git clone https://github.com/Tharunkunamalla/instant-route-guide.git
+     cd instant-route-guide
+     ```
+  2. Create a `.env` file and add your credentials:
+     ```bash
+     echo "VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here" > .env
+     ```
+  3. Spin up the container services:
+     ```bash
+     sudo docker-compose up --build -d
+     ```
+* **Allow Traffic on Port 8080:**
+  By default, the gateway listens on port `8080`. You need to create a firewall rule:
+  1. Go to **VPC Network** -> **Firewall** -> **Create Firewall Rule**.
+  2. Set **Target tags** to apply to your VM instance.
+  3. Set **Source IP ranges** to `0.0.0.0/0`.
+  4. Under **Protocols and ports**, select **Specified protocols and ports** -> **TCP** -> enter `8080`.
+  5. Access your app at `http://<VM_EXTERNAL_IP>:8080`.
+
+#### 2. Google Cloud Run (Serverless) - *Highly scalable*
+If you prefer serverless deployment, you can deploy each service individually to Google Cloud Run:
+* **Container Registry:** Build and push each container (`frontend`, `osm-proxy`, `pathfinding`) to Google Artifact Registry.
+* **Routing Adjustments:** Since Cloud Run services get unique URLs and are serverless, you would need to:
+  1. Update the frontend API URLs to point directly to the deployed Cloud Run endpoints for the OSM and Pathfinding services.
+  2. Or run them in a **Cloud Run multi-container (sidecar)** configuration using the gateway as the main ingress container.
+
+---
+
 ## Usage
 
 1. **Launch the Dashboard**: Navigate to the Map interface.
