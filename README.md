@@ -22,7 +22,7 @@
 
 **Instant Route Guide** is an interactive, full-stack pathfinding visualization platform designed to compare classic graph-search algorithms on actual road networks. Using map data from **OpenStreetMap (OSM)** and geocoding services, the application calculates and visualizes the shortest path between any two locations in real-time.
 
-The project is structured as a **microservices-based architecture**, containing a React/TypeScript frontend for Leaflet-based map visualization, a Node.js service for map data proxying, and a high-performance Java backend service for running pathfinding algorithms. This setup allows users to compare **Breadth-First Search (BFS)**, **Dijkstra's Algorithm**, and the **A\* Search Algorithm** side-by-side, witnessing how different search strategies expand nodes and build optimal routes.
+The project is structured as a **microservices-based architecture**, containing a React/TypeScript frontend for Leaflet-based map visualization, a Node.js service for map data proxying, and a high-performance Java backend service for running pathfinding algorithms. The entire stack is **fully Dockerized** using Docker Compose for simple local orchestrations and is **ready for cloud deployment on Google Cloud Platform (GCP)**. This setup allows users to compare **Breadth-First Search (BFS)**, **Dijkstra's Algorithm**, and the **A\* Search Algorithm** side-by-side, witnessing how different search strategies expand nodes and build optimal routes.
 
 ---
 
