@@ -48,7 +48,8 @@ export const fetchRoadNetwork = async (lat, lng, radius = 2000) => {
   `;
 
   try {
-    const response = await fetchWithTimeout("/api/osm", {
+    const API_BASE = import.meta.env.VITE_OSM_API_URL || "";
+    const response = await fetchWithTimeout(`${API_BASE}/api/osm`, {
       method: "POST",
       body: `data=${encodeURIComponent(query)}`,
       headers: {

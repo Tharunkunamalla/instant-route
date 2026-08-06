@@ -14,7 +14,8 @@ import { bfs } from "@/algorithms/bfs";
  */
 export const getRoute = async (graph, source, destination, algorithm) => {
   try {
-    const response = await fetch("/api/pathfind", {
+    const API_BASE = import.meta.env.VITE_PATHFINDING_API_URL || "";
+    const response = await fetch(`${API_BASE}/api/pathfind`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
