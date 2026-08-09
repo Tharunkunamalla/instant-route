@@ -10,6 +10,7 @@ import MapPage from "./pages/MapPage";
 import ImmersiveMapPage from "./pages/ImmersiveMapPage";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/map" element={<MapPage />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
