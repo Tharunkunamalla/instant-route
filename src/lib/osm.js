@@ -18,7 +18,7 @@ const fetchWithTimeout = async (url, options, timeout = 15000) => {
 };
 
 // Helper to calculate distance between two coordinates in meters (Haversine)
-const getDistance = (lat1, lon1, lat2, lon2) => {
+export const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; // Earth radius in meters
   const rad = Math.PI / 180;
   const dLat = (lat2 - lat1) * rad;
