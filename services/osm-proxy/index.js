@@ -142,57 +142,71 @@ if (process.env.NODE_ENV !== 'test') {
   const consumer = kafka.consumer({ groupId: 'osm-proxy-group' });
 
   const runKafkaConsumer = async () => {
-    try {
-      await consumer.connect();
-      await consumer.subscribe({ topic: 'pathfinding-telemetry', fromBeginning: true });
-      console.log("[Kafka] Subscribed to topic 'pathfinding-telemetry'");
+    let connected = false;
+    let retries = 0;
+    const maxRetries = 15;
 
-      await consumer.run({
-        eachMessage: async ({ message }) => {
-          try {
-            const rawValue = message.value.toString();
-            const data = JSON.parse(rawValue);
+    while (!connected && retries < maxRetries) {
+      try {
+        await consumer.connect();
+        await consumer.subscribe({ topic: 'pathfinding-telemetry', fromBeginning: true });
 
-            let algo = data.algorithm;
-            if (algo === "A*") algo = "AStar";
-            else if (algo === "Bidirectional Dijkstra") algo = "BidirectionalDijkstra";
-            else if (algo === "Bidirectional A*") algo = "BidirectionalAStar";
+        await consumer.run({
+          eachMessage: async ({ message }) => {
+            try {
+              const rawValue = message.value.toString();
+              const data = JSON.parse(rawValue);
 
-            // Update stats
-            telemetryData.totalRuns += 1;
-            if (!telemetryData.algorithms[algo]) {
-              telemetryData.algorithms[algo] = { runs: 0, totalTimeMs: 0, totalNodesExplored: 0, totalPathLength: 0 };
+              let algo = data.algorithm;
+              if (algo === "A*") algo = "AStar";
+              else if (algo === "Bidirectional Dijkstra") algo = "BidirectionalDijkstra";
+              else if (algo === "Bidirectional A*") algo = "BidirectionalAStar";
+
+              // Update stats
+              telemetryData.totalRuns += 1;
+              if (!telemetryData.algorithms[algo]) {
+                telemetryData.algorithms[algo] = { runs: 0, totalTimeMs: 0, totalNodesExplored: 0, totalPathLength: 0 };
+              }
+
+              telemetryData.algorithms[algo].runs += 1;
+              telemetryData.algorithms[algo].totalTimeMs += Number(data.executionTimeMs || 0);
+              telemetryData.algorithms[algo].totalNodesExplored += Number(data.nodesExplored || 0);
+              telemetryData.algorithms[algo].totalPathLength += Number(data.pathLength || 0);
+
+              // Add to recent runs list (keep last 15)
+              telemetryData.recentRuns.unshift({
+                id: `${data.timestamp}-${Math.random().toString(36).substring(2, 6)}`,
+                algorithm: data.algorithm,
+                source: data.source,
+                destination: data.destination,
+                executionTimeMs: data.executionTimeMs,
+                pathLength: data.pathLength,
+                nodesExplored: data.nodesExplored,
+                timestamp: data.timestamp
+              });
+
+              if (telemetryData.recentRuns.length > 15) {
+                telemetryData.recentRuns.pop();
+              }
+
+              console.log(`[Kafka] Processed telemetry event for ${data.algorithm} (${data.executionTimeMs}ms)`);
+            } catch (err) {
+              console.error("[Kafka] Parse error:", err.message);
             }
-
-            telemetryData.algorithms[algo].runs += 1;
-            telemetryData.algorithms[algo].totalTimeMs += Number(data.executionTimeMs || 0);
-            telemetryData.algorithms[algo].totalNodesExplored += Number(data.nodesExplored || 0);
-            telemetryData.algorithms[algo].totalPathLength += Number(data.pathLength || 0);
-
-            // Add to recent runs list (keep last 15)
-            telemetryData.recentRuns.unshift({
-              id: `${data.timestamp}-${Math.random().toString(36).substring(2, 6)}`,
-              algorithm: data.algorithm,
-              source: data.source,
-              destination: data.destination,
-              executionTimeMs: data.executionTimeMs,
-              pathLength: data.pathLength,
-              nodesExplored: data.nodesExplored,
-              timestamp: data.timestamp
-            });
-
-            if (telemetryData.recentRuns.length > 15) {
-              telemetryData.recentRuns.pop();
-            }
-
-            console.log(`[Kafka] Processed telemetry event for ${data.algorithm} (${data.executionTimeMs}ms)`);
-          } catch (err) {
-            console.error("[Kafka] Parse error:", err.message);
           }
-        }
-      });
-    } catch (error) {
-      console.warn("[Kafka] Connection error (consumer disabled):", error.message);
+        });
+
+        console.log("[Kafka] Consumer connected & subscribed to topic 'pathfinding-telemetry'");
+        connected = true;
+      } catch (error) {
+        retries++;
+        console.warn(`[Kafka] Connection attempt ${retries}/${maxRetries} failed: ${error.message}. Retrying in 5s...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    }
+
+    if (!connected) {
+      console.error("[Kafka] Failed to establish consumer connection after max retries.");
     }
   };
 
