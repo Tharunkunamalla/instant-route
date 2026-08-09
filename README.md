@@ -2,8 +2,6 @@
 
 <div align="center">
 
-![Instant Route Guide](public/logo1.png)
-
 **A high-performance real-time route optimization application that visualizes and compares pathfinding algorithms on real-world road networks.**
 
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
