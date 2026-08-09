@@ -117,6 +117,7 @@ const LiveShare = () => {
   const [routingFriendId, setRoutingFriendId] = useState(null);
   const [activeRoutePath, setActiveRoutePath] = useState(null);
   const [activeRouteInfo, setActiveRouteInfo] = useState(null);
+  const [estTimeRemaining, setEstTimeRemaining] = useState(0);
 
   // Refs
   const wsRef = useRef(null);
@@ -400,9 +401,26 @@ const LiveShare = () => {
   const calculateWalkingRoute = async (friend) => {
     if (!myLocation || !friend.lat || !friend.lng) return;
 
+    const distanceBetween = getDistance(myLocation.lat, myLocation.lng, friend.lat, friend.lng);
+    const MAX_STREET_ROUTING_DISTANCE_METERS = 10000; // 10 km limit for street routing
+
+    if (distanceBetween > MAX_STREET_ROUTING_DISTANCE_METERS) {
+      toast({
+        title: "Locations Too Far",
+        description: `Street routing is designed for local walking/driving paths (max 10 km). You are ${(distanceBetween / 1000).toFixed(1)} km apart.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     setRoutingFriendId(friend.userId);
     setActiveRoutePath(null);
     setActiveRouteInfo(null);
+    setEstTimeRemaining(12);
+
+    const timer = setInterval(() => {
+      setEstTimeRemaining(prev => (prev > 1 ? prev - 1 : 1));
+    }, 1000);
 
     toast({
       title: "Loading street routing...",
@@ -415,8 +433,6 @@ const LiveShare = () => {
       const midLng = (myLocation.lng + friend.lng) / 2;
 
       // Determine appropriate search radius based on distance + padding
-      const distanceBetween = getDistance(myLocation.lat, myLocation.lng, friend.lat, friend.lng);
-      
       // Radius should be at least 1500 meters and cover at least half of distance + 20% buffer
       const searchRadius = Math.max(1500, Math.min(5000, Math.round((distanceBetween / 2) * 1.3)));
 
@@ -513,6 +529,8 @@ const LiveShare = () => {
         variant: "destructive"
       });
     } finally {
+      clearInterval(timer);
+      setEstTimeRemaining(0);
       setRoutingFriendId(null);
     }
   };
@@ -719,12 +737,16 @@ const LiveShare = () => {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => calculateWalkingRoute(friend)}
-                                    disabled={routingFriendId !== null}
-                                    className="w-full text-xs font-semibold h-8 border-primary/20 hover:bg-primary/5 flex items-center justify-center gap-1"
+                                    disabled={routingFriendId !== null || (myLocation && getDistance(myLocation.lat, myLocation.lng, friend.lat, friend.lng) > 10000)}
+                                    className="w-full text-xs font-semibold h-8 border-primary/20 hover:bg-primary/5 flex items-center justify-center gap-1 disabled:opacity-60"
                                   >
                                     {routingFriendId === friend.userId ? (
                                       <>
-                                        <Loader2 className="w-3 h-3 animate-spin text-primary" /> Calculating...
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> Calculating... (Est: {estTimeRemaining}s)
+                                      </>
+                                    ) : myLocation && getDistance(myLocation.lat, myLocation.lng, friend.lat, friend.lng) > 10000 ? (
+                                      <>
+                                        <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" /> Too Far for Street Route (Max 10km)
                                       </>
                                     ) : (
                                       <>
