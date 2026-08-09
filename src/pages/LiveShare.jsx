@@ -227,9 +227,19 @@ const LiveShare = () => {
       wsRef.current.close();
     }
 
-    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsHost = window.location.host;
-    const wsUrl = `${wsProto}//${wsHost}/ws`;
+    let wsUrl = import.meta.env.VITE_WS_API_URL;
+    
+    if (!wsUrl) {
+      const osmApiUrl = import.meta.env.VITE_OSM_API_URL || "";
+      if (osmApiUrl && (osmApiUrl.startsWith("http://") || osmApiUrl.startsWith("https://"))) {
+        // Replace http/https protocol with ws/wss protocol
+        wsUrl = osmApiUrl.replace(/^http/, "ws") + "/ws";
+      } else {
+        const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsHost = window.location.host;
+        wsUrl = `${wsProto}//${wsHost}/ws`;
+      }
+    }
 
     console.log(`Connecting to WebSocket: ${wsUrl}`);
     const ws = new WebSocket(wsUrl);
