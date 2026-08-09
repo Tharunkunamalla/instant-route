@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { Kafka } from 'kafkajs';
+import http from 'http';
+import { WebSocketServer } from 'ws';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -227,9 +229,169 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'UP' });
 });
 
+// Live Location WebSocket State
+// rooms: Map<sessionId, Map<userId, { username, lat, lng, ws }>>
+const rooms = new Map();
+
+// Create HTTP server wrapping express app
+const server = http.createServer(app);
+
+// Create WebSocket server
+const wss = new WebSocketServer({ noServer: true });
+
+// Handle WebSocket upgrade
+server.on('upgrade', (request, socket, head) => {
+  const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+  if (parsedUrl.pathname === '/ws') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+// Broadcast helper
+const broadcastToRoom = (sessionId, message, excludeUserId = null) => {
+  const room = rooms.get(sessionId);
+  if (!room) return;
+  const data = JSON.stringify(message);
+  for (const [memberId, member] of room.entries()) {
+    if (excludeUserId && memberId === excludeUserId) continue;
+    if (member.ws && member.ws.readyState === 1) { // OPEN
+      member.ws.send(data);
+    }
+  }
+};
+
+// WebSocket connection handler
+wss.on('connection', (ws) => {
+  let userSessionId = null;
+  let userMemberId = null;
+
+  ws.on('message', (messageStr) => {
+    try {
+      const data = JSON.parse(messageStr.toString());
+
+      if (data.type === 'join') {
+        const { username } = data;
+        let { sessionId } = data;
+
+        // Generate room code if not provided
+        if (!sessionId) {
+          sessionId = 'LIV-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+        } else {
+          sessionId = sessionId.toUpperCase().trim();
+        }
+
+        // Clean up from any previous room
+        if (userSessionId && rooms.has(userSessionId)) {
+          const room = rooms.get(userSessionId);
+          room.delete(userMemberId);
+          broadcastToRoom(userSessionId, { type: 'member-left', userId: userMemberId });
+          if (room.size === 0) rooms.delete(userSessionId);
+        }
+
+        userSessionId = sessionId;
+        userMemberId = 'usr-' + Math.random().toString(36).substring(2, 7);
+
+        if (!rooms.has(sessionId)) {
+          rooms.set(sessionId, new Map());
+        }
+
+        const room = rooms.get(sessionId);
+        
+        // Add new member
+        const newMember = {
+          userId: userMemberId,
+          username: username || 'Anonymous',
+          lat: data.lat || null,
+          lng: data.lng || null,
+          ws
+        };
+        room.set(userMemberId, newMember);
+
+        // Prepare member list for the joining client (excluding socket details)
+        const membersList = [];
+        for (const [mId, m] of room.entries()) {
+          membersList.push({
+            userId: m.userId,
+            username: m.username,
+            lat: m.lat,
+            lng: m.lng
+          });
+        }
+
+        // Acknowledge join to the user
+        ws.send(JSON.stringify({
+          type: 'joined',
+          sessionId,
+          userId: userMemberId,
+          members: membersList
+        }));
+
+        // Broadcast join to other members
+        broadcastToRoom(sessionId, {
+          type: 'member-joined',
+          member: {
+            userId: userMemberId,
+            username: newMember.username,
+            lat: newMember.lat,
+            lng: newMember.lng
+          }
+        }, userMemberId);
+
+        console.log(`[WS] User ${newMember.username} (${userMemberId}) joined room ${sessionId}`);
+      }
+
+      else if (data.type === 'update-location') {
+        if (!userSessionId || !userMemberId || !rooms.has(userSessionId)) return;
+        
+        const room = rooms.get(userSessionId);
+        const member = room.get(userMemberId);
+        if (member) {
+          member.lat = data.lat;
+          member.lng = data.lng;
+
+          // Broadcast coordinate update to room
+          broadcastToRoom(userSessionId, {
+            type: 'location-updated',
+            userId: userMemberId,
+            lat: data.lat,
+            lng: data.lng
+          }, userMemberId);
+        }
+      }
+    } catch (err) {
+      console.error('[WS] Error processing message:', err.message);
+    }
+  });
+
+  ws.on('close', () => {
+    if (userSessionId && userMemberId && rooms.has(userSessionId)) {
+      const room = rooms.get(userSessionId);
+      const member = room.get(userMemberId);
+      const username = member ? member.username : 'Unknown';
+      
+      room.delete(userMemberId);
+      console.log(`[WS] User ${username} (${userMemberId}) disconnected from room ${userSessionId}`);
+
+      broadcastToRoom(userSessionId, {
+        type: 'member-left',
+        userId: userMemberId
+      });
+
+      if (room.size === 0) {
+        rooms.delete(userSessionId);
+        console.log(`[WS] Room ${userSessionId} deleted as it is empty`);
+      }
+    }
+  });
+});
+
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`OSM Proxy microservice running on port ${port}`);
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`OSM Proxy microservice running on port ${port} (HTTP & WebSockets)`);
   });
 }
 
