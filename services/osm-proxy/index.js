@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { Kafka } from 'kafkajs';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -114,16 +115,108 @@ const osmHandler = async (req, res) => {
   res.status(502).json({ error: "Failed to connect to any OpenStreetMap/Overpass servers" });
 };
 
+// Telemetry state and consumer configuration
+const kafkaBootstrapServers = process.env.KAFKA_BOOTSTRAP_SERVERS || 'localhost:9092';
+const telemetryData = {
+  totalRuns: 0,
+  algorithms: {
+    BFS: { runs: 0, totalTimeMs: 0, totalNodesExplored: 0, totalPathLength: 0 },
+    Dijkstra: { runs: 0, totalTimeMs: 0, totalNodesExplored: 0, totalPathLength: 0 },
+    AStar: { runs: 0, totalTimeMs: 0, totalNodesExplored: 0, totalPathLength: 0 },
+    BidirectionalDijkstra: { runs: 0, totalTimeMs: 0, totalNodesExplored: 0, totalPathLength: 0 },
+    BidirectionalAStar: { runs: 0, totalTimeMs: 0, totalNodesExplored: 0, totalPathLength: 0 }
+  },
+  recentRuns: []
+};
+
+if (process.env.NODE_ENV !== 'test') {
+  const kafka = new Kafka({
+    clientId: 'osm-proxy-consumer',
+    brokers: [kafkaBootstrapServers],
+    retry: {
+      initialRetryTime: 300,
+      retries: 5
+    }
+  });
+
+  const consumer = kafka.consumer({ groupId: 'osm-proxy-group' });
+
+  const runKafkaConsumer = async () => {
+    try {
+      await consumer.connect();
+      await consumer.subscribe({ topic: 'pathfinding-telemetry', fromBeginning: true });
+      console.log("[Kafka] Subscribed to topic 'pathfinding-telemetry'");
+
+      await consumer.run({
+        eachMessage: async ({ message }) => {
+          try {
+            const rawValue = message.value.toString();
+            const data = JSON.parse(rawValue);
+
+            let algo = data.algorithm;
+            if (algo === "A*") algo = "AStar";
+            else if (algo === "Bidirectional Dijkstra") algo = "BidirectionalDijkstra";
+            else if (algo === "Bidirectional A*") algo = "BidirectionalAStar";
+
+            // Update stats
+            telemetryData.totalRuns += 1;
+            if (!telemetryData.algorithms[algo]) {
+              telemetryData.algorithms[algo] = { runs: 0, totalTimeMs: 0, totalNodesExplored: 0, totalPathLength: 0 };
+            }
+
+            telemetryData.algorithms[algo].runs += 1;
+            telemetryData.algorithms[algo].totalTimeMs += Number(data.executionTimeMs || 0);
+            telemetryData.algorithms[algo].totalNodesExplored += Number(data.nodesExplored || 0);
+            telemetryData.algorithms[algo].totalPathLength += Number(data.pathLength || 0);
+
+            // Add to recent runs list (keep last 15)
+            telemetryData.recentRuns.unshift({
+              id: `${data.timestamp}-${Math.random().toString(36).substring(2, 6)}`,
+              algorithm: data.algorithm,
+              source: data.source,
+              destination: data.destination,
+              executionTimeMs: data.executionTimeMs,
+              pathLength: data.pathLength,
+              nodesExplored: data.nodesExplored,
+              timestamp: data.timestamp
+            });
+
+            if (telemetryData.recentRuns.length > 15) {
+              telemetryData.recentRuns.pop();
+            }
+
+            console.log(`[Kafka] Processed telemetry event for ${data.algorithm} (${data.executionTimeMs}ms)`);
+          } catch (err) {
+            console.error("[Kafka] Parse error:", err.message);
+          }
+        }
+      });
+    } catch (error) {
+      console.warn("[Kafka] Connection error (consumer disabled):", error.message);
+    }
+  };
+
+  runKafkaConsumer();
+}
+
 // Route handlers
 app.post('/api/osm', osmHandler);
 app.get('/api/osm', osmHandler);
 app.post('/', osmHandler);
 app.get('/', osmHandler);
 
+app.get('/api/analytics', (req, res) => {
+  res.status(200).json(telemetryData);
+});
+
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'UP' });
 });
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`OSM Proxy microservice running on port ${port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`OSM Proxy microservice running on port ${port}`);
+  });
+}
+
+export default app;
