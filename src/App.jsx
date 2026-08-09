@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import Landing from "./pages/Landing";
 import MapPage from "./pages/MapPage";
 import ImmersiveMapPage from "./pages/ImmersiveMapPage";
+import LiveShare from "./pages/LiveShare";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Analytics from "./pages/Analytics";
@@ -56,6 +57,7 @@ const App = () => (
           <Route element={<Layout />}>
             <Route path="/" element={<Landing />} />
             <Route path="/map" element={<MapPage />} />
+            <Route path="/share" element={<LiveShare />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/analytics" element={<Analytics />} />
