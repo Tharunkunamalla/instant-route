@@ -20,9 +20,9 @@
 
 ## Project Summary
 
-**Instant Route Guide** is an interactive, full-stack pathfinding visualization platform designed to compare classic graph-search algorithms on actual road networks. Using map data from **OpenStreetMap (OSM)** and geocoding services, the application calculates and visualizes the shortest path between any two locations in real-time.
+**Instant Route Guide** is a production-grade, full-stack pathfinding visualization and execution metrics telemetry platform. It is designed to compare classic and bidirectional graph-search algorithms on real-world road networks. Using geographic data from **OpenStreetMap (OSM)** and geocoding services, the application calculates and visualizes routing paths in real-time.
 
-The project is structured as a **microservices-based architecture**, containing a React/TypeScript frontend for Leaflet-based map visualization, a Node.js service for map data proxying, and a high-performance Java backend service for running pathfinding algorithms. The entire stack is **fully Dockerized** using Docker Compose for simple local orchestrations and is **ready for cloud deployment on Google Cloud Platform (GCP)**. This setup allows users to compare **Breadth-First Search (BFS)**, **Dijkstra's Algorithm**, and the **A\* Search Algorithm** side-by-side, witnessing how different search strategies expand nodes and build optimal routes.
+The system is engineered as a **decoupled microservices architecture** containing a React/Vite frontend (Leaflet mapping, Recharts diagrams), an API Gateway (Nginx), an OSM data proxy with in-memory caching (Node.js), and a high-performance pathfinding computation engine (Java Spring Boot). The services communicate both synchronously via REST APIs and asynchronously via an event streaming pipeline using **Apache Kafka** (to publish, consume, and aggregate search metrics). The entire stack is **fully containerized** via Docker Compose (using Nginx configuration setups for single-page routing and self-healing consumer retry policies) and is scoped with automated testing (Vitest, JUnit) integrated into a **GitHub Actions CI/CD pipeline**. This setup allows side-by-side comparison of **BFS**, **Dijkstra**, **A\***, **Bidirectional Dijkstra**, and **Bidirectional A\*** search strategies.
 
 ---
 
@@ -79,9 +79,17 @@ The application is built using a containerized microservices architecture to seg
 - **Real-time Route Calculation**: Computes routing paths using live graph data from OpenStreetMap.
 - **Interactive Map Visualization**: Leaflet-based interactive maps featuring custom layer styles and markers.
 - **Location Search**: Geocodes address queries to city regions using the Google Maps API.
-- **Algorithm Selection**: Allows toggle switching between BFS, Dijkstra's, and A* algorithms.
-- **Visualization Playback**: Play, pause, step-through, and speed sliders for controlling the rendering of node discovery.
-- **Distance & Duration**: Real-time metrics calculating route distance (meters) and estimated durations.
+- **Algorithm Selection**: Supports BFS, Dijkstra, A*, Bidirectional Dijkstra, and Bidirectional A*.
+- **Visualization Playback**: Play, pause, step-through, and speed sliders for node discovery animations.
+- **Distance & Duration**: Calculates route distance (meters) and estimated durations.
+
+### SDE & System Design Features
+- **Event-Driven Telemetry (Kafka)**: Asynchronously streams calculation stats from Spring Boot to Node.js.
+- **Analytics Dashboard (Recharts)**: Interactive charts comparing average latency, search-space size, and run shares.
+- **Self-Healing Consumer**: Utilizes automatic retry policies with backoff to resolve startup race conditions.
+- **SPA Ingress Routing**: Nginx overrides that map client-side route reloads safely to `index.html`.
+- **Automated Test Coverage**: Isolated unit test suites (JUnit, Vitest, Supertest) for all project microservices.
+- **CI/CD Integration**: Scoped GitHub Actions workflow verifying code quality on every push.
 
 ### UI/UX Features
 - Premium dark-themed visual layout with a sleek color scheme.
@@ -93,8 +101,9 @@ The application is built using a containerized microservices architecture to seg
 1. **Landing Page** - High-impact intro detailing the project purpose and key features.
 2. **Map Page** - Main interactive dashboard containing search sidebar, configuration tools, and the map canvas.
 3. **Immersive Map Page** - Full-bleed, full-screen map mode for an uninterrupted visualization experience.
-4. **About Page** - Deep dive into project goals, algorithm concepts, and information.
-5. **Contact Page** - User query and contact submission form.
+4. **Analytics Page** - Live performance telemetry graphs and Kafka transaction audit trail.
+5. **About Page** - Deep dive into project goals, algorithm concepts, and information.
+6. **Contact Page** - User query and contact submission form.
 
 ---
 
