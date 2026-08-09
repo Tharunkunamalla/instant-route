@@ -10,7 +10,8 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "kafkajs": "^2.2.4"
+    "kafkajs": "^2.2.4",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "supertest": "^7.0.0",
